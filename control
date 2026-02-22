@@ -1,0 +1,9 @@
+Package: com.woostergames.animalcompany
+Name: EverLight Animal Company VR Mod Menu
+Version: 4.0.0
+Architecture: iphoneos-arm
+Description: EverLight mod menu for Animal Company VR.
+Maintainer: EverLight Dev <dev@everlight.local>
+Author: EverLight Dev
+Section: Tweaks
+Depends: mobilesubstrate | substitute | libhooker
