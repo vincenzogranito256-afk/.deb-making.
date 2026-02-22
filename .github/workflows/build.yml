@@ -1,0 +1,81 @@
+name: Build Tweak DEB
+
+on:
+  push:
+    branches: [ main ]
+    # Optionally trigger only on tags for releases:
+    # tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: macos-latest   # Required for Theos + Xcode toolchain
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Theos
+        uses: beerpiss/theos-action@v1
+        with:
+          theos-dir: theos
+          # Optional: use a custom SDK repo if you need newer/older iOS SDKs
+          # sdks-repo: https://github.com/theos/sdks
+          cache-theos: true
+          cache-sdks: true
+          # orion: 'false'   # set to 'true' only if your tweak uses Swift/Orion
+
+      - name: Create control file (if missing)
+        run: |
+          if [ ! -f control ]; then
+            cat << EOF > control
+          Package: com.yourname.animalcompanymod
+          Name: Animal Company Mod
+          Version: 1.0.0
+          Architecture: iphoneos-arm
+          Description: Black Hole themed menu + teleports for Animal Company VR
+          Maintainer: Your Name <your@email.com>
+          Author: Your Name
+          Section: Tweaks
+          Depends: mobilesubstrate
+          EOF
+          fi
+
+      - name: Create Makefile (minimal for single-file tweak)
+        run: |
+          if [ ! -f Makefile ]; then
+            cat << 'EOF' > Makefile
+          include $(THEOS)/makefiles/common.mk
+
+          TWEAK_NAME = AnimalCompanyTweak
+          AnimalCompanyTweak_FILES = Tweak(1).mm
+          AnimalCompanyTweak_FRAMEWORKS = UIKit QuartzCore
+          AnimalCompanyTweak_CFLAGS = -fobjc-arc
+          AnimalCompanyTweak_LDFLAGS = -ldl
+
+          include $(THEOS_MAKE_PATH)/tweak.mk
+          EOF
+          fi
+
+      - name: Build and package DEB
+        run: |
+          make package FINALPACKAGE=1
+          ls -la packages/*.deb || echo "No deb found - check build logs"
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnimalCompanyTweak-deb
+          path: packages/*.deb
+          if-no-files-found: error
+          retention-days: 7
+
+      # Optional: create GitHub release on tag push
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*.deb
+          generate_release_notes: true
