@@ -1,4 +1,4 @@
-name: Build Animal Company Tweak
+name: Build EverLight Tweak
 
 on:
   push:
@@ -8,52 +8,50 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-deb:
+  build:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Xcode info
-        run: |
-          xcodebuild -version
-          xcode-select -p
-          ls /Applications/Xcode* || true
-
-      - name: Install build tools
+      - name: Install tools
         run: |
           brew update
           brew install make cmake libzip ldid pkg-config wget xz
 
-      - name: Clone Theos
+      - name: Setup Theos
         run: |
           git clone --recursive https://github.com/theos/theos.git ~/theos
           echo "THEOS=~/theos" >> $GITHUB_ENV
           echo "~/theos/bin" >> $GITHUB_PATH
 
-      - name: Download compatible SDK (iOS 17.0)
+      - name: Install iOS 17.0 SDK (compatible with iOS 13 target)
         run: |
           mkdir -p ~/theos/sdks
           cd ~/theos/sdks
-          wget https://github.com/theos/sdks/raw/master/iPhoneOS17.0.sdk.tar.xz || echo "SDK download failed - using default"
-          tar -xJf iPhoneOS17.0.sdk.tar.xz || true
-          ls -la ~/theos/sdks
+          wget https://github.com/theos/sdks/raw/master/iPhoneOS17.0.sdk.tar.xz
+          tar -xJf iPhoneOS17.0.sdk.tar.xz
+          ls -la ~/theos/sdks/iPhoneOS17.0.sdk || exit 1
 
-      - name: Build tweak
+      - name: Verify files
+        run: ls -la control Makefile Tweak.mm
+
+      - name: Build package
         run: |
+          set -x
           make clean || true
           make package FINALPACKAGE=1 || {
-            echo "Build failed. Logs:"
-            ls -la .theos/log/ || true
-            cat .theos/log/* 2>/dev/null || true
+            echo "BUILD FAILED - showing logs:"
+            find .theos -name "*.log" -exec cat {} + || true
+            tail -n 100 .theos/log/* 2>/dev/null || true
             exit 1
           }
-          ls -la packages/*.deb || echo "No .deb found"
+          ls -la packages/*.deb
 
       - name: Upload DEB
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: animal-company-tweak-deb
+          name: everlight-deb
           path: packages/*.deb
-          if-no-files-found: warn
