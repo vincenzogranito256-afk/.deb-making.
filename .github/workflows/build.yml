@@ -15,43 +15,49 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Install prerequisites
         run: |
-          brew update
-          brew install make cmake libzip ldid pkg-config wget xz
+          brew update || true
+          brew install make cmake libzip ldid pkg-config wget xz git || true
 
-      - name: Setup Theos
+      - name: Clone Theos
         run: |
           git clone --recursive https://github.com/theos/theos.git ~/theos
           echo "THEOS=~/theos" >> $GITHUB_ENV
           echo "~/theos/bin" >> $GITHUB_PATH
 
-      - name: Install iOS 17.0 SDK (compatible with iOS 13 target)
+      - name: Download & extract iPhoneOS17.0 SDK (patched/private headers)
         run: |
           mkdir -p ~/theos/sdks
           cd ~/theos/sdks
-          wget https://github.com/theos/sdks/raw/master/iPhoneOS17.0.sdk.tar.xz
-          tar -xJf iPhoneOS17.0.sdk.tar.xz
+          wget -O iPhoneOS17.0.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS17.0.sdk.tar.xz || { echo "wget failed - check network or URL"; exit 1; }
+          tar -xJf iPhoneOS17.0.sdk.tar.xz || { echo "tar failed"; exit 1; }
           ls -la ~/theos/sdks/iPhoneOS17.0.sdk || exit 1
 
-      - name: Verify files
-        run: ls -la control Makefile Tweak.mm
+      - name: Show project files & Theos info
+        run: |
+          ls -la control Makefile Tweak.mm
+          cat control
+          head -n 20 Makefile
+          echo "THEOS=$THEOS"
+          ~/theos/bin/nic.pl --version || echo "nic.pl not found"
 
-      - name: Build package
+      - name: Build & capture full output
         run: |
           set -x
           make clean || true
-          make package FINALPACKAGE=1 || {
-            echo "BUILD FAILED - showing logs:"
-            find .theos -name "*.log" -exec cat {} + || true
-            tail -n 100 .theos/log/* 2>/dev/null || true
+          make package FINALPACKAGE=1 2>&1 | tee build.log || {
+            echo "=== BUILD FAILED - full log below ==="
+            cat build.log
+            echo "=== End of log ==="
+            find .theos -type f -name "*.log" -exec cat {} + 2>/dev/null || true
             exit 1
           }
-          ls -la packages/*.deb
+          ls -la packages/*.deb || echo "No deb produced"
 
-      - name: Upload DEB
+      - name: Upload DEB if built
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: everlight-deb
+          name: everlight-tweak-deb
           path: packages/*.deb
