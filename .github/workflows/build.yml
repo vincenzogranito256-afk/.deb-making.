@@ -12,10 +12,10 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install prerequisites
+      - name: Install build tools
         run: |
           brew update || true
           brew install make cmake libzip ldid pkg-config wget xz git || true
@@ -26,38 +26,39 @@ jobs:
           echo "THEOS=~/theos" >> $GITHUB_ENV
           echo "~/theos/bin" >> $GITHUB_PATH
 
-      - name: Download & extract iPhoneOS17.0 SDK (patched/private headers)
+      - name: Download & extract iPhoneOS16.5 SDK (patched with private headers)
         run: |
           mkdir -p ~/theos/sdks
           cd ~/theos/sdks
-          wget -O iPhoneOS17.0.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS17.0.sdk.tar.xz || { echo "wget failed - check network or URL"; exit 1; }
-          tar -xJf iPhoneOS17.0.sdk.tar.xz || { echo "tar failed"; exit 1; }
-          ls -la ~/theos/sdks/iPhoneOS17.0.sdk || exit 1
+          wget -O iPhoneOS16.5.sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS16.5.sdk.tar.xz || { echo "SDK download failed - URL may have changed"; exit 1; }
+          tar -xJf iPhoneOS16.5.sdk.tar.xz || { echo "Extraction failed"; exit 1; }
+          ls -la ~/theos/sdks/iPhoneOS16.5.sdk || exit 1
 
-      - name: Show project files & Theos info
+      - name: Show project files for debugging
         run: |
-          ls -la control Makefile Tweak.mm
+          ls -la control Makefile Tweak.mm || echo "Missing one or more required files!"
           cat control
-          head -n 20 Makefile
-          echo "THEOS=$THEOS"
-          ~/theos/bin/nic.pl --version || echo "nic.pl not found"
+          head -n 30 Makefile
+          echo "SDKs available:"
+          ls ~/theos/sdks
 
-      - name: Build & capture full output
+      - name: Build tweak & capture output
         run: |
           set -x
           make clean || true
-          make package FINALPACKAGE=1 2>&1 | tee build.log || {
-            echo "=== BUILD FAILED - full log below ==="
-            cat build.log
-            echo "=== End of log ==="
+          make package FINALPACKAGE=1 2>&1 | tee build-full.log || {
+            echo "BUILD FAILED - showing full captured log:"
+            cat build-full.log
+            echo "=== Additional Theos logs if any ==="
             find .theos -type f -name "*.log" -exec cat {} + 2>/dev/null || true
             exit 1
           }
-          ls -la packages/*.deb || echo "No deb produced"
+          ls -la packages/*.deb || echo "No .deb file produced - build likely failed"
 
-      - name: Upload DEB if built
+      - name: Upload .deb artifact (if built)
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: everlight-tweak-deb
+          name: everlight-animalcompany-deb
           path: packages/*.deb
+          retention-days: 7
