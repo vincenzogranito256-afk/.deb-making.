@@ -1,1 +1,42 @@
-.github/workflows/build.yml
+name: AnimalCompanyTweak
+options:
+  bundleIdPrefix: com.animalcompany
+  deploymentTarget:
+    iOS: 13.0
+  usesTabs: false
+  indentWidth: 4
+  tabWidth: 4
+configs:
+  Debug: debug
+  Release: release
+schemes:
+  AnimalCompanyTweak:
+    build:
+      targets:
+        AnimalCompanyTweak: all
+    test:
+      targets: []
+targets:
+  AnimalCompanyTweak:
+    type: library.dynamic
+    platform: iOS
+    deploymentTarget: 13.0
+    sources:
+      - path: Tweak(1).mm
+    settings:
+      base:
+        CLANG_ENABLE_MODULES: YES
+        CLANG_ENABLE_OBJC_ARC: YES
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)
+        LIBRARY_SEARCH_PATHS:
+          - $(SRCROOT)
+        OTHER_LDFLAGS:
+          - -framework UIKit
+          - -framework QuartzCore
+          - -framework Foundation
+          - -ldl
+        ARCHS: arm64
+        VALID_ARCHS: arm64
+        SDKROOT: iphoneos
+        IPHONEOS_DEPLOYMENT_TARGET: 13.0
